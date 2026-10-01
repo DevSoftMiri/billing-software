@@ -1756,6 +1756,20 @@ th {
     padding: 0;
     border-radius: 10px;
   }
+  .mobile-create-button {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: 1px solid var(--amber);
+    border-radius: 10px;
+    background: var(--amber);
+    color: #34270d;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
   .mobile-nav-title {
     text-align: center;
   }
@@ -2118,24 +2132,34 @@ th {
     background: #fffdf8;
   }
   .table-panel table {
-    display: none;
+    display: table;
+    min-width: 820px;
   }
-  .table-caption,
-  table {
-    min-width: 0;
+  .customer-table-panel table {
+    min-width: 720px;
+  }
+  .table-caption {
+    min-width: 820px;
+  }
+  .customer-table-panel .table-caption {
+    min-width: 720px;
   }
   .table-caption {
     padding: 15px 16px;
   }
   .table-panel {
-    overflow: visible;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
   .mobile-card-list {
     display: grid;
     gap: 12px;
   }
   .table-panel .mobile-card-list {
-    padding: 0 12px 12px;
+    display: none;
+  }
+  .customer-row-list {
+    display: none;
   }
   .page > .mobile-card-list {
     margin-top: 12px;

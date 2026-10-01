@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ArrowLeft, ArrowRight, CheckCircle2, Download, Eye, FileText, Plus, Printer, Search, Share2, Trash2 } from 'lucide-react'
 import { dataApi } from '../services/api'
 
@@ -19,6 +20,7 @@ const formatAddress = (address) => [address.line1, address.city, address.state, 
 const steps = ['Customer', 'Products', 'Review', 'Save']
 
 export default function CreateBillDirect({ products, setProducts, setInvoices, notify }) {
+    const navigate = useNavigate()
     const [step, setStep] = useState(0)
     const [customer, setCustomer] = useState('')
     const [mobile, setMobile] = useState('')
@@ -205,6 +207,7 @@ export default function CreateBillDirect({ products, setProducts, setInvoices, n
             setStep(3)
             notify(`Invoice ${invoice.invoiceNumber} created successfully`)
             if (nextAction === 'print') window.print()
+            navigate('/bills')
         } catch { notify('Could not save the invoice or product details') }
         finally { setSaving(false) }
     }

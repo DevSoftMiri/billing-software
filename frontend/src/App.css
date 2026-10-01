@@ -694,6 +694,18 @@ nav {
   gap: 10px;
   margin: 0 0 16px;
 }
+.bills-page {
+  padding-top: 22px;
+}
+.bills-toolbar {
+  align-items: stretch;
+}
+.bills-toolbar .searchbox {
+  max-width: 520px;
+}
+.bills-export {
+  margin-left: auto;
+}
 .searchbox {
   flex: 1;
   max-width: 420px;
@@ -1609,6 +1621,9 @@ th {
   }
   .searchbox {
     min-width: 100%;
+  }
+  .bills-export {
+    margin-left: 0;
   }
   .form-grid,
   .form-grid.three,

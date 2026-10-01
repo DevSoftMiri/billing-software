@@ -76,8 +76,19 @@ app.get('/api/invoices/:id/pdf', auth, async (req, res) => {
     const address = [settings?.address, settings?.city, settings?.state, settings?.pinCode].filter(Boolean).join(', ')
     const customerAddress = invoice.customer?.billingAddress || invoice.customer?.address || invoice.customer?.state || ''
     const shippingAddress = invoice.customer?.shippingAddress || customerAddress
-    const rowsPerFirstPage = 12
-    const rowsPerNextPage = 20
+    const addressParts = (value = '') => {
+        const parts = String(value || '').split(',').map((part) => part.trim()).filter(Boolean)
+        const pinFromText = String(value || '').match(/\b\d{6}\b/)?.[0] || ''
+        const pinIndex = parts.findIndex((part) => /\b\d{6}\b/.test(part))
+        const pinCode = pinFromText || ''
+        const withoutPin = parts.filter((_, index) => index !== pinIndex)
+        const state = withoutPin.length > 2 ? withoutPin[withoutPin.length - 1] : invoice.customer?.state || ''
+        const city = withoutPin.length > 1 ? withoutPin[withoutPin.length - 2] : ''
+        const line1 = withoutPin.length > 2 ? withoutPin.slice(0, -2).join(', ') : withoutPin[0] || ''
+        return { line1, city, state, pinCode }
+    }
+    const rowsPerFirstPage = 3
+    const rowsPerNextPage = 9
     const chunks = []
     invoice.items.forEach((item, index) => {
         const limit = chunks.length ? rowsPerNextPage : rowsPerFirstPage
@@ -126,26 +137,25 @@ app.get('/api/invoices/:id/pdf', auth, async (req, res) => {
         doc.font('Helvetica-Bold').fontSize(9).fillColor('#ffffff').text(label, x - 7, y - 5, { width: 14, align: 'center' })
     }
     const drawTable = (items, yStart) => {
-        const cols = [42, 75, 302, 350, 406, 465, 513]
-        const widths = [33, 220, 42, 52, 58, 48, 52]
+        const cols = [42, 82, 314, 358, 414, 468, 518]
+        const widths = [28, 218, 35, 50, 50, 40, 42]
         doc.roundedRect(30, yStart, 535, 27, 5).fill(bronze)
         ;['No.', 'Item Description', 'Qty.', 'MRP (Rs.)', 'Rate (Rs.)', 'Tax', 'Amount (Rs.)'].forEach((heading, index) => {
-            doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#ffffff').text(heading, cols[index], yStart + 10, { width: widths[index], align: index > 1 ? 'right' : 'left' })
+            doc.font('Helvetica-Bold').fontSize(7.2).fillColor('#ffffff').text(heading, cols[index], yStart + 10, { width: widths[index], align: index > 1 ? 'right' : 'left', lineBreak: false })
         })
         let y = yStart + 27
         items.forEach(({ item, serial }, index) => {
             const rowFill = index % 2 ? '#fffaf2' : '#ffffff'
-            doc.rect(30, y, 535, 31).fillAndStroke(rowFill, lineColor)
+            doc.rect(30, y, 535, 34).fillAndStroke(rowFill, lineColor)
             doc.font('Helvetica').fontSize(7.5).fillColor(ink)
             doc.text(String(serial), cols[0], y + 10, { width: widths[0], align: 'center' })
-            doc.font('Helvetica-Bold').text(item.productName || 'Product', cols[1], y + 10, { width: widths[1] })
-            doc.font('Helvetica').fontSize(6.5).fillColor(muted).text([item.productCode, item.unit].filter(Boolean).join(' / '), cols[1], y + 21, { width: widths[1] })
+            doc.font('Helvetica-Bold').text(item.productName || 'Product', cols[1], y + 10, { width: widths[1], height: 14, ellipsis: true })
             doc.font('Helvetica').fontSize(7.5).fillColor(ink).text(String(item.quantity || 0), cols[2], y + 10, { width: widths[2], align: 'right' })
             doc.text(currency(item.price), cols[3], y + 10, { width: widths[3], align: 'right' })
             doc.text(currency(item.price), cols[4], y + 10, { width: widths[4], align: 'right' })
             doc.text(`${item.gstRate || 0}%`, cols[5], y + 10, { width: widths[5], align: 'right' })
             doc.text(currency(item.total || item.taxableAmount), cols[6], y + 10, { width: widths[6], align: 'right' })
-            y += 31
+            y += 34
         })
         return y
     }
@@ -159,16 +169,19 @@ app.get('/api/invoices/:id/pdf', auth, async (req, res) => {
         doc.font('Helvetica-Bold').fontSize(9).text('Due Date:', 436, 201)
         doc.font('Helvetica').fontSize(9).text(shortDate(invoiceDate), 489, 201, { width: 65 })
 
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('BILL TO', 30, 246)
-        doc.font('Helvetica-Bold').fontSize(10).text(invoice.customer?.name || 'Customer', 30, 269)
-        doc.font('Helvetica').fontSize(8.5).fillColor(ink).text(customerAddress || '-', 30, 286, { width: 245 })
-        doc.text(`Mobile: ${invoice.customer?.mobile || '-'}`, 30, 316)
-        doc.text(`GSTIN: ${invoice.customer?.gstin || '-'}`, 30, 331)
-        doc.text(`State: ${invoice.customer?.state || '-'}`, 30, 346)
-        doc.font('Helvetica-Bold').fontSize(11).fillColor(ink).text('SHIP TO', 318, 246)
-        doc.font('Helvetica-Bold').fontSize(10).text(invoice.customer?.name || 'Customer', 318, 269)
-        doc.font('Helvetica').fontSize(8.5).fillColor(ink).text(shippingAddress || '-', 318, 286, { width: 220 })
-        doc.text(`Mobile: ${invoice.customer?.mobile || '-'}`, 318, 316)
+        const drawPartyCard = (x, title, addressText) => {
+            const parts = addressParts(addressText)
+            roundedBox(x, 246, 255, 96, '#ffffff')
+            doc.font('Helvetica-Bold').fontSize(10.5).fillColor(bronzeDark).text(title, x + 14, 256)
+            doc.font('Helvetica-Bold').fontSize(8.8).fillColor(ink).text(invoice.customer?.name || 'Customer', x + 14, 274, { width: 220, height: 11, ellipsis: true })
+            doc.font('Helvetica').fontSize(7.2).fillColor(ink).text(parts.line1 || '-', x + 14, 288, { width: 220, height: 10, ellipsis: true })
+            doc.text(`City: ${parts.city || '-'}`, x + 14, 302, { width: 105, height: 10, ellipsis: true })
+            doc.text(`PIN: ${parts.pinCode || '-'}`, x + 135, 302, { width: 90, height: 10, ellipsis: true })
+            doc.text(`State: ${parts.state || invoice.customer?.state || '-'}`, x + 14, 316, { width: 105, height: 10, ellipsis: true })
+            doc.text(`Mobile: ${invoice.customer?.mobile || '-'}`, x + 135, 316, { width: 95, height: 10, ellipsis: true })
+        }
+        drawPartyCard(30, 'BILL TO', customerAddress)
+        drawPartyCard(310, 'SHIP TO', shippingAddress, false)
     }
     const drawFinalSections = (top) => {
         const footerTop = Math.max(top + 20, 485)
@@ -178,7 +191,8 @@ app.get('/api/invoices/:id/pdf', auth, async (req, res) => {
         doc.font('Helvetica').fontSize(8).fillColor(ink).text(`${numberWords(invoice.grandTotal)} Only`, 78, footerTop + 34, { width: 195 })
 
         roundedBox(310, footerTop, 255, 151, '#ffffff')
-        const totals = [['Subtotal', invoice.subtotal], ['Taxable Amount', invoice.taxableAmount], ['CGST', invoice.cgstTotal], ['SGST', invoice.sgstTotal]]
+        const taxRows = Number(invoice.igstTotal || 0) > 0 ? [['IGST', invoice.igstTotal]] : [['CGST', invoice.cgstTotal], ['SGST', invoice.sgstTotal]]
+        const totals = [['Subtotal', invoice.subtotal], ['Taxable Amount', invoice.taxableAmount], ...taxRows]
         totals.forEach(([label, value], index) => {
             doc.font('Helvetica').fontSize(8).fillColor(ink).text(label, 324, footerTop + 13 + index * 17)
             doc.text(`Rs.${currency(value)}`, 456, footerTop + 13 + index * 17, { width: 85, align: 'right' })
@@ -228,10 +242,9 @@ app.get('/api/invoices/:id/pdf', auth, async (req, res) => {
         doc.font('Helvetica-Bold').fontSize(6).fillColor(bronzeDark).text('Payment QR Code', 220, footerTop + 226, { width: 68, align: 'center' })
 
         roundedBox(310, footerTop + 205, 255, 67, '#ffffff')
-        doc.font('Helvetica').fontSize(24).fillColor(ink).text(settings?.ownerName || 'Authorised', 370, footerTop + 221, { width: 120, align: 'center' })
-        doc.moveTo(370, footerTop + 255).lineTo(490, footerTop + 255).strokeColor(gold).stroke()
-        doc.font('Helvetica-Bold').fontSize(8).fillColor(ink).text('Authorised Signatory', 370, footerTop + 261, { width: 120, align: 'center' })
-        doc.font('Helvetica').fontSize(7).fillColor(muted).text(settings?.businessName || 'Company', 370, footerTop + 273, { width: 120, align: 'center' })
+        doc.moveTo(375, footerTop + 245).lineTo(500, footerTop + 245).strokeColor(gold).stroke()
+        doc.font('Helvetica-Bold').fontSize(8).fillColor(ink).text('Authorised Signatory', 375, footerTop + 251, { width: 125, align: 'center' })
+        doc.font('Helvetica').fontSize(7).fillColor(muted).text(settings?.businessName || 'Company', 375, footerTop + 263, { width: 125, align: 'center' })
     }
 
     res.setHeader('Content-Type', 'application/pdf')
@@ -241,7 +254,7 @@ app.get('/api/invoices/:id/pdf', auth, async (req, res) => {
         if (pageIndex > 0) doc.addPage({ size: 'A4', margin: 32 })
         drawWaveChrome(pageIndex + 1)
         if (pageIndex === 0) drawDetails()
-        const y = drawTable(chunk, pageIndex === 0 ? 350 : 150)
+        const y = drawTable(chunk, pageIndex === 0 ? 360 : 150)
         if (pageIndex === chunks.length - 1) drawFinalSections(y)
     })
     doc.end()

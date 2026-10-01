@@ -1,4 +1,4 @@
-# Ledgerly Billing
+# Billing Pro
 
 Separate MERN billing workspace for a small Indian business.
 

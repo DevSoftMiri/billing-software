@@ -30,7 +30,7 @@ const logoPattern = /^data:image\/(png|jpe?g|webp);base64,[A-Za-z0-9+/=]+$/
 const logoBuffer = (dataUrl) => dataUrl ? Buffer.from(dataUrl.split(',')[1], 'base64') : null
 const errorHandler = (error, req, res, next) => { console.error(error); if (error.code === 11000) return res.status(409).json({ message: 'An account with that email already exists' }); if (error.name === 'ValidationError') return res.status(400).json({ message: Object.values(error.errors).map((item) => item.message).join(', ') }); return res.status(error.status || 500).json({ message: 'Something went wrong. Please try again.' }) }
 
-app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'ledgerly-api' }))
+app.get('/api/health', (req, res) => res.json({ status: 'ok', service: 'billing-pro-api' }))
 app.post('/api/auth/register', async (req, res) => { const { name, email, password } = req.body; if (!name || !email || !password || password.length < 8) return res.status(400).json({ message: 'Name, email and an 8-character password are required' }); const user = await User.create({ name, email, password: await bcrypt.hash(password, 12) }); res.status(201).json({ id: user.id, name: user.name, email: user.email }) })
 app.post('/api/auth/login', async (req, res) => { const user = await User.findOne({ email: req.body.email }); if (!user || !(await bcrypt.compare(req.body.password || '', user.password))) return res.status(401).json({ message: 'Invalid email or password' }); const token = jwt.sign({ id: user.id, name: user.name, email: user.email }, process.env.JWT_SECRET || 'development-secret', { expiresIn: '7d' }); res.json({ token, user: { id: user.id, name: user.name, email: user.email } }) })
 app.get('/api/products', auth, async (req, res) => res.json(await Product.find({ isActive: true }).sort({ createdAt: -1 }).limit(200)))
@@ -267,7 +267,7 @@ const port = process.env.PORT || 5000
 mongoose.connect(process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ledgerly')
     .then(() => {
         console.log('MongoDB connected successfully')
-        const server = app.listen(port, () => console.log(`Ledgerly API listening on ${port}`))
+        const server = app.listen(port, () => console.log(`Billing Pro API listening on ${port}`))
         server.on('error', (error) => {
             if (error.code === 'EADDRINUSE') {
                 console.error(`Port ${port} is already in use. Stop the existing server or set a different PORT in backend/.env.`)
